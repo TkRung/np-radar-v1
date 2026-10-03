@@ -1,0 +1,987 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07131f">
+  <meta name="description" content="NP Radar V1 — เรดาร์ฝนสากลตามตำแหน่ง GPS พร้อมแจ้งเตือนสำหรับกิจกรรมกลางแจ้ง">
+  <title>NP Radar V1</title>
+
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+  <style>
+    :root {
+      --bg:#06111c;
+      --panel:rgba(7,19,31,.94);
+      --panel2:#10263d;
+      --text:#f6fbff;
+      --muted:#aebfd1;
+      --cyan:#46d1ff;
+      --green:#64e6a3;
+      --yellow:#ffd65d;
+      --orange:#ff9f4e;
+      --red:#ff6464;
+      --border:rgba(255,255,255,.12);
+    }
+
+    * { box-sizing:border-box; }
+    html,body,#map { height:100%; margin:0; }
+    body {
+      font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      overflow:hidden;
+    }
+    #map { z-index:1; }
+
+    .hud {
+      position:fixed;
+      z-index:1000;
+      top:calc(8px + env(safe-area-inset-top,0px));
+      left:8px;
+      right:8px;
+      pointer-events:none;
+    }
+
+    .panel {
+      width:min(1120px,100%);
+      margin:0 auto;
+      pointer-events:auto;
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:18px;
+      padding:11px;
+      box-shadow:0 16px 40px rgba(0,0,0,.38);
+      backdrop-filter:blur(14px);
+    }
+
+    .head {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .brand {
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .logo {
+      width:42px;
+      height:42px;
+      border-radius:13px;
+      display:grid;
+      place-items:center;
+      font-weight:950;
+      font-size:15px;
+      background:linear-gradient(145deg,#09395a,#0b6d8c);
+      border:1px solid rgba(255,255,255,.18);
+      box-shadow:0 7px 20px rgba(0,0,0,.25);
+    }
+
+    h1 {
+      margin:0;
+      font-size:19px;
+      line-height:1.1;
+      letter-spacing:.2px;
+    }
+
+    .sub {
+      color:var(--muted);
+      font-size:10px;
+      margin-top:3px;
+    }
+
+    .status {
+      display:flex;
+      gap:7px;
+      align-items:center;
+      font-size:11px;
+      color:var(--muted);
+      background:rgba(255,255,255,.06);
+      padding:7px 9px;
+      border-radius:999px;
+    }
+
+    .status-dot {
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:var(--yellow);
+      box-shadow:0 0 12px currentColor;
+    }
+    .status.ok .status-dot { background:var(--green); }
+    .status.bad .status-dot { background:var(--red); }
+
+    .alert {
+      margin-top:9px;
+      padding:10px 11px;
+      border-radius:13px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.055);
+      font-size:13px;
+      font-weight:850;
+      line-height:1.35;
+    }
+    .alert.safe { border-color:rgba(100,230,163,.65); }
+    .alert.watch { border-color:rgba(255,214,93,.75); }
+    .alert.warn { border-color:rgba(255,159,78,.9); }
+    .alert.danger { border-color:rgba(255,100,100,.95); }
+
+    .row {
+      display:flex;
+      gap:7px;
+      align-items:center;
+      flex-wrap:wrap;
+      margin-top:8px;
+    }
+
+    button, .btn {
+      border:1px solid var(--border);
+      background:var(--panel2);
+      color:var(--text);
+      border-radius:10px;
+      padding:8px 10px;
+      font-weight:800;
+      font-size:11px;
+      cursor:pointer;
+      text-decoration:none;
+      -webkit-tap-highlight-color:transparent;
+    }
+    button:hover,.btn:hover { filter:brightness(1.12); }
+    button.primary { background:#08709a; }
+    button.active { outline:2px solid var(--cyan); }
+    button:disabled { opacity:.45; cursor:default; }
+
+    .gpsline {
+      color:#9cecff;
+      font-size:10px;
+      flex:1;
+      min-width:220px;
+    }
+
+    .timeline {
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:8px;
+      align-items:center;
+      margin-top:8px;
+    }
+    input[type="range"] { width:100%; }
+
+    .cards {
+      display:grid;
+      grid-template-columns:repeat(5,1fr);
+      gap:7px;
+      margin-top:8px;
+    }
+
+    .card {
+      min-height:61px;
+      padding:8px;
+      border-radius:11px;
+      background:rgba(255,255,255,.045);
+      border:1px solid rgba(255,255,255,.08);
+      font-size:10px;
+    }
+    .card b {
+      display:block;
+      font-size:13px;
+      margin:2px 0 3px;
+    }
+
+    .models {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:7px;
+      margin-top:8px;
+    }
+
+    .model {
+      padding:8px;
+      border-radius:11px;
+      background:rgba(255,255,255,.045);
+      border:1px solid rgba(255,255,255,.08);
+      font-size:10px;
+      line-height:1.4;
+    }
+
+    .badge {
+      display:inline-block;
+      margin-left:5px;
+      border-radius:999px;
+      padding:2px 6px;
+      font-size:9px;
+      font-weight:900;
+    }
+    .risk0 { background:rgba(100,230,163,.16); color:#a8f4ce; }
+    .risk1 { background:rgba(255,214,93,.17); color:#ffe894; }
+    .risk2 { background:rgba(255,159,78,.17); color:#ffc38f; }
+    .risk3 { background:rgba(255,100,100,.17); color:#ffa0a0; }
+
+    .bottom {
+      position:fixed;
+      z-index:1000;
+      right:9px;
+      bottom:calc(9px + env(safe-area-inset-bottom,0px));
+      width:min(350px,calc(100vw - 18px));
+      padding:9px 10px;
+      border-radius:14px;
+      background:rgba(7,19,31,.94);
+      border:1px solid var(--border);
+      box-shadow:0 12px 30px rgba(0,0,0,.35);
+      font-size:10px;
+      line-height:1.45;
+    }
+
+    .legend {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      margin-top:4px;
+      color:var(--muted);
+    }
+
+    .legendbar {
+      width:115px;
+      height:8px;
+      border-radius:99px;
+      background:linear-gradient(90deg,#007aa8,#34b76f,#ffe14f,#ff8a38,#d32020,#eb6bff);
+    }
+
+    .small { font-size:9px; color:var(--muted); }
+
+    @media (max-width:760px) {
+      .panel { padding:8px; border-radius:15px; }
+      .logo { width:37px; height:37px; border-radius:11px; }
+      h1 { font-size:16px; }
+      .cards { grid-template-columns:repeat(2,1fr); }
+      .cards .card:last-child { grid-column:1 / -1; }
+      .models { grid-template-columns:1fr; }
+      button,.btn { padding:7px 8px; font-size:10px; }
+      .bottom { display:none; }
+      .gpsline { min-width:160px; }
+    }
+  </style>
+</head>
+
+<body>
+<div id="map"></div>
+
+<div class="hud">
+  <div class="panel">
+    <div class="head">
+      <div class="brand">
+        <div class="logo">NP</div>
+        <div>
+          <h1>NP Radar V1</h1>
+          <div class="sub">Global Radar • GPS • Rain Alert • Outdoor Safety</div>
+        </div>
+      </div>
+
+      <div id="sourceStatus" class="status">
+        <span class="status-dot"></span>
+        <span id="sourceStatusText">กำลังโหลดข้อมูล…</span>
+      </div>
+    </div>
+
+    <div id="alertBox" class="alert watch">
+      กด “ใช้ตำแหน่งของฉัน” เพื่อเริ่มวิเคราะห์ฝนรอบตำแหน่งปัจจุบัน
+    </div>
+
+    <div class="row">
+      <button id="gpsBtn" class="primary">📍 ใช้ตำแหน่งของฉัน</button>
+      <button id="notifyBtn">🔔 เปิดแจ้งเตือน</button>
+      <button id="refreshBtn">↻ อัปเดต</button>
+      <button id="copyBtn">📋 คัดลอกสถานะ</button>
+      <span id="gpsInfo" class="gpsline">ยังไม่ได้ใช้ GPS</span>
+    </div>
+
+    <div class="row">
+      <button id="prevBtn">⏮</button>
+      <button id="playBtn">▶ เล่นเรดาร์</button>
+      <button id="nextBtn">⏭</button>
+      <button id="latestBtn">ล่าสุด</button>
+      <button class="radiusBtn active" data-radius="5">5 กม.</button>
+      <button class="radiusBtn active" data-radius="10">10 กม.</button>
+      <button class="radiusBtn active" data-radius="20">20 กม.</button>
+    </div>
+
+    <div class="timeline">
+      <input id="timeline" type="range" min="0" max="0" step="1" value="0">
+      <span id="frameIdx" class="small">0/0</span>
+    </div>
+
+    <div class="cards">
+      <div class="card">ฝนใน 0–5 กม.<b id="r5">—</b><span class="small">เรดาร์ล่าสุด</span></div>
+      <div class="card">ฝนใน 5–10 กม.<b id="r10">—</b><span class="small">เรดาร์ล่าสุด</span></div>
+      <div class="card">ฝนใน 10–20 กม.<b id="r20">—</b><span class="small">เรดาร์ล่าสุด</span></div>
+      <div class="card">แนวโน้มฝน<b id="movement">—</b><span class="small">เทียบหลายเฟรม</span></div>
+      <div class="card">เฟรมล่าสุด<b id="frameAge">—</b><span id="frameTime" class="small">—</span></div>
+    </div>
+
+    <div class="models">
+      <div id="ecmwfCard" class="model"><b>ECMWF IFS</b><br>กำลังโหลด…</div>
+      <div id="gfsCard" class="model"><b>NOAA GFS</b><br>กำลังโหลด…</div>
+    </div>
+  </div>
+</div>
+
+<div class="bottom">
+  <b>NP Radar V1</b><br>
+  เรดาร์: RainViewer global composite ย้อนหลัง 2 ชั่วโมง • พยากรณ์: ECMWF IFS + NOAA GFS
+  <div class="legend"><span class="legendbar"></span><span>ฝนอ่อน → ฝนแรง</span></div>
+  <div class="small">
+    แจ้งเตือนนี้เป็นเครื่องมือช่วยตัดสินใจกิจกรรมกลางแจ้ง ไม่ใช่ประกาศเตือนภัยราชการ
+    • Notification ทำงานเมื่อเว็บยังเปิด/ทำงานอยู่บนอุปกรณ์
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+
+const map = L.map("map", {
+  center:[13.7563,100.5018],
+  zoom:10,
+  minZoom:5,
+  maxZoom:18,
+  zoomControl:true
+});
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom:19,
+  attribution:"© OpenStreetMap contributors"
+}).addTo(map);
+
+let target = {
+  name:"ตำแหน่งตัวอย่าง: กรุงเทพฯ",
+  lat:13.7563,
+  lon:100.5018,
+  accuracy:null
+};
+
+let userMarker = null;
+let accuracyCircle = null;
+let rings = {};
+let rainMeta = null;
+let frames = [];
+let frameIndex = -1;
+let radarLayer = null;
+let animationTimer = null;
+let playing = false;
+let notificationEnabled = false;
+let lastNotificationAt = 0;
+let radarRisk = 0;
+let radarText = "ยังไม่ได้วิเคราะห์";
+let modelData = { ecmwf:null, gfs:null };
+let analysisCache = new Map();
+let lastShareText = "";
+let geolocationWatchId = null;
+
+function setSourceStatus(text, mode="") {
+  const box = $("sourceStatus");
+  $("sourceStatusText").textContent = text;
+  box.classList.remove("ok","bad");
+  if (mode) box.classList.add(mode);
+}
+
+function formatThaiDate(sec) {
+  return new Intl.DateTimeFormat("th-TH",{
+    timeZone:"Asia/Bangkok",
+    day:"numeric",
+    month:"short",
+    hour:"2-digit",
+    minute:"2-digit"
+  }).format(new Date(sec * 1000));
+}
+
+function showTarget() {
+  if (userMarker) map.removeLayer(userMarker);
+  if (accuracyCircle) map.removeLayer(accuracyCircle);
+  Object.values(rings).forEach(x => map.removeLayer(x));
+  rings = {};
+
+  userMarker = L.circleMarker([target.lat,target.lon], {
+    radius:7,
+    weight:3,
+    opacity:1,
+    fillOpacity:.95
+  }).addTo(map).bindTooltip(target.name);
+
+  if (target.accuracy) {
+    accuracyCircle = L.circle([target.lat,target.lon], {
+      radius:Math.max(10,target.accuracy),
+      weight:1,
+      opacity:.45,
+      fillOpacity:.04
+    }).addTo(map);
+  }
+
+  [5,10,20].forEach(km => {
+    rings[km] = L.circle([target.lat,target.lon], {
+      radius:km*1000,
+      weight:km===20?2:1,
+      dashArray:km===20?"8 7":"5 6",
+      opacity:.8,
+      fillOpacity:.008
+    }).addTo(map);
+  });
+}
+
+function updateRingVisibility() {
+  document.querySelectorAll(".radiusBtn").forEach(btn => {
+    const km = Number(btn.dataset.radius);
+    const active = btn.classList.contains("active");
+    if (!rings[km]) return;
+    if (active && !map.hasLayer(rings[km])) rings[km].addTo(map);
+    if (!active && map.hasLayer(rings[km])) map.removeLayer(rings[km]);
+  });
+}
+
+function tileUrl(frame) {
+  return `${rainMeta.host}${frame.path}/512/{z}/{x}/{y}/2/1_0.png`;
+}
+
+function showFrame(i) {
+  if (!frames.length) return;
+
+  frameIndex = Math.max(0,Math.min(i,frames.length-1));
+  const frame = frames[frameIndex];
+
+  if (radarLayer) map.removeLayer(radarLayer);
+  radarLayer = L.tileLayer(tileUrl(frame), {
+    opacity:.72,
+    tileSize:512,
+    zoomOffset:-1,
+    maxNativeZoom:7,
+    maxZoom:18,
+    zIndex:500,
+    attribution:"Radar © RainViewer"
+  }).addTo(map);
+
+  $("timeline").max = frames.length-1;
+  $("timeline").value = frameIndex;
+  $("frameIdx").textContent = `${frameIndex+1}/${frames.length}`;
+  $("frameTime").textContent = formatThaiDate(frame.time);
+
+  const age = Math.max(0,Math.round((Date.now()/1000 - frame.time)/60));
+  $("frameAge").textContent = `~${age} นาที`;
+}
+
+function stopAnimation() {
+  if (animationTimer) clearInterval(animationTimer);
+  animationTimer = null;
+  playing = false;
+  $("playBtn").textContent = "▶ เล่นเรดาร์";
+}
+
+function startAnimation() {
+  if (!frames.length) return;
+  stopAnimation();
+  playing = true;
+  $("playBtn").textContent = "⏸ หยุด";
+
+  if (frameIndex >= frames.length-1) frameIndex = 0;
+  showFrame(frameIndex);
+
+  animationTimer = setInterval(() => {
+    showFrame(frameIndex + 1 >= frames.length ? 0 : frameIndex + 1);
+  },700);
+}
+
+async function apiJson(url) {
+  const r = await fetch(url,{cache:"no-store"});
+  const data = await r.json();
+  if (!r.ok || data.ok === false) throw new Error(data.error || `HTTP ${r.status}`);
+  return data.data ?? data;
+}
+
+async function loadRadarMeta() {
+  const data = await apiJson("/api/rainviewer");
+  rainMeta = data;
+  frames = data?.radar?.past || [];
+  if (!frames.length) throw new Error("ไม่พบเฟรมเรดาร์");
+  showFrame(frames.length-1);
+}
+
+function metersPerPixel(lat,z) {
+  return 156543.03392 * Math.cos(lat*Math.PI/180) / Math.pow(2,z);
+}
+
+async function fetchRadarImage(frame) {
+  const key = `${frame.time}:${target.lat.toFixed(4)}:${target.lon.toFixed(4)}`;
+  if (analysisCache.has(key)) return analysisCache.get(key);
+
+  const src =
+    `${rainMeta.host}${frame.path}/512/7/` +
+    `${target.lat.toFixed(5)}/${target.lon.toFixed(5)}/2/0_0.png`;
+
+  const promise = new Promise((resolve,reject) => {
+    const im = new Image();
+    im.crossOrigin = "anonymous";
+    im.onload = () => resolve(im);
+    im.onerror = () => reject(new Error("โหลดภาพเรดาร์ไม่ได้"));
+    im.src = "/api/radar-image?url=" + encodeURIComponent(src);
+  });
+
+  analysisCache.set(key,promise);
+  return promise;
+}
+
+function analyzeImage(img) {
+  const canvas = document.createElement("canvas");
+  canvas.width = img.width;
+  canvas.height = img.height;
+
+  const ctx = canvas.getContext("2d",{willReadFrequently:true});
+  ctx.drawImage(img,0,0);
+
+  const px = ctx.getImageData(0,0,canvas.width,canvas.height).data;
+  const cx = canvas.width/2;
+  const cy = canvas.height/2;
+  const mpp = metersPerPixel(target.lat,7);
+
+  const bins = [
+    {min:0,max:5000,n:0,r:0},
+    {min:5000,max:10000,n:0,r:0},
+    {min:10000,max:20000,n:0,r:0}
+  ];
+
+  let wx=0, wy=0, ww=0;
+
+  for (let y=0; y<canvas.height; y+=2) {
+    for (let x=0; x<canvas.width; x+=2) {
+      const dx = (x-cx)*mpp;
+      const dy = (y-cy)*mpp;
+      const dist = Math.hypot(dx,dy);
+
+      if (dist > 30000) continue;
+
+      const alpha = px[(y*canvas.width+x)*4+3];
+      const rainy = alpha > 25;
+
+      if (dist <= 20000) {
+        for (const b of bins) {
+          if (dist >= b.min && dist < b.max) {
+            b.n++;
+            if (rainy) b.r++;
+          }
+        }
+      }
+
+      if (rainy) {
+        const w = alpha/255;
+        wx += dx*w;
+        wy += dy*w;
+        ww += w;
+      }
+    }
+  }
+
+  return {
+    cover:bins.map(b => b.n ? b.r/b.n : 0),
+    centroid:ww ? {
+      x:wx/ww,
+      y:wy/ww,
+      dist:Math.hypot(wx/ww,wy/ww)
+    } : null
+  };
+}
+
+function directionFromCentroid(c) {
+  if (!c) return "ไม่ทราบทิศ";
+  const deg = (Math.atan2(c.x,-c.y)*180/Math.PI+360)%360;
+  const dirs = [
+    "เหนือ","ตะวันออกเฉียงเหนือ","ตะวันออก","ตะวันออกเฉียงใต้",
+    "ใต้","ตะวันตกเฉียงใต้","ตะวันตก","ตะวันตกเฉียงเหนือ"
+  ];
+  return dirs[Math.round(deg/45)%8];
+}
+
+async function analyzeRadar() {
+  if (!rainMeta || frames.length < 5) return;
+
+  try {
+    const fOld = frames[Math.max(0,frames.length-5)];
+    const fMid = frames[Math.max(0,frames.length-3)];
+    const fNow = frames[frames.length-1];
+
+    const [imgOld,imgMid,imgNow] = await Promise.all([
+      fetchRadarImage(fOld),
+      fetchRadarImage(fMid),
+      fetchRadarImage(fNow)
+    ]);
+
+    const oldS = analyzeImage(imgOld);
+    const midS = analyzeImage(imgMid);
+    const nowS = analyzeImage(imgNow);
+
+    $("r5").textContent = `${Math.round(nowS.cover[0]*100)}%`;
+    $("r10").textContent = `${Math.round(nowS.cover[1]*100)}%`;
+    $("r20").textContent = `${Math.round(nowS.cover[2]*100)}%`;
+
+    let movement = "ทรงตัว/ยังไม่ชัด";
+    let moveScore = 0;
+
+    if (oldS.centroid && nowS.centroid) {
+      const delta = oldS.centroid.dist - nowS.centroid.dist;
+
+      if (delta > 3000) {
+        movement = "กำลังเข้าใกล้";
+        moveScore = 2;
+      } else if (delta > 1200) {
+        movement = "มีแนวโน้มเข้าใกล้";
+        moveScore = 1;
+      } else if (delta < -3000) {
+        movement = "กำลังออกห่าง";
+        moveScore = -2;
+      } else if (delta < -1200) {
+        movement = "มีแนวโน้มออกห่าง";
+        moveScore = -1;
+      }
+    }
+
+    const nearTrend = nowS.cover[0] - oldS.cover[0];
+    if (nearTrend > .015 && moveScore < 1) {
+      movement = "ฝนใกล้ตัวเพิ่มขึ้น";
+      moveScore = 1;
+    }
+
+    $("movement").textContent = movement;
+
+    const dir = directionFromCentroid(nowS.centroid);
+    const inner = nowS.cover[0];
+    const mid = nowS.cover[1];
+    const outer = nowS.cover[2];
+
+    let level = 0;
+    if (inner > .018) level = 3;
+    else if (mid > .02 || (moveScore >= 2 && outer > .012)) level = 2;
+    else if (outer > .015 || moveScore >= 1) level = 1;
+
+    radarRisk = level;
+    radarText = `${movement}${nowS.centroid ? ` • กลุ่มหลักด้าน${dir}` : ""}`;
+    evaluateAlert();
+
+  } catch (e) {
+    console.warn(e);
+    $("r5").textContent = "—";
+    $("r10").textContent = "—";
+    $("r20").textContent = "—";
+    $("movement").textContent = "วิเคราะห์ไม่ได้";
+    radarRisk = 0;
+    radarText = "อ่านภาพอัตโนมัติไม่ได้ แต่ยังดูภาพเรดาร์ได้";
+    evaluateAlert();
+  }
+}
+
+function summarizeModel(data) {
+  const h = data?.hourly;
+  if (!h) return null;
+
+  const now = Date.now();
+  const rows = [];
+
+  for (let i=0; i<h.time.length; i++) {
+    const t = new Date(h.time[i]).getTime();
+    if (t >= now-30*60000 && t <= now+6*3600000) {
+      rows.push({
+        p:Number(h.precipitation?.[i] || 0),
+        gust:Number(h.wind_gusts_10m?.[i] || 0),
+        cape:Number(h.cape?.[i] || 0)
+      });
+    }
+  }
+
+  if (!rows.length) return null;
+
+  return {
+    rain6:rows.reduce((s,x)=>s+x.p,0),
+    maxRain:Math.max(...rows.map(x=>x.p)),
+    maxGust:Math.max(...rows.map(x=>x.gust)),
+    maxCape:Math.max(...rows.map(x=>x.cape))
+  };
+}
+
+function modelRisk(s) {
+  if (!s) return 0;
+  if (s.maxRain >= 10 || s.maxGust >= 55 || s.maxCape >= 1800) return 3;
+  if (s.maxRain >= 5 || s.maxGust >= 40 || s.maxCape >= 1000) return 2;
+  if (s.maxRain >= 1 || s.maxGust >= 30 || s.maxCape >= 500) return 1;
+  return 0;
+}
+
+function renderModel(id,name,s) {
+  const box = $(id);
+  if (!s) {
+    box.innerHTML = `<b>${name}</b><br>ไม่มีข้อมูล`;
+    return;
+  }
+
+  const r = modelRisk(s);
+  const labels = ["ต่ำ","เฝ้าระวัง","ค่อนข้างสูง","สูง"];
+
+  box.innerHTML =
+    `<b>${name}<span class="badge risk${r}">${labels[r]}</span></b><br>` +
+    `6 ชม.ข้างหน้า: ฝนรวม ${s.rain6.toFixed(1)} มม. • สูงสุด/ชม. ${s.maxRain.toFixed(1)} มม.<br>` +
+    `ลมกระโชกสูงสุด ${s.maxGust.toFixed(0)} กม./ชม. • CAPE ${s.maxCape.toFixed(0)} J/kg`;
+}
+
+async function loadModels() {
+  const [e,g] = await Promise.allSettled([
+    apiJson(`/api/forecast?model=ecmwf&lat=${target.lat}&lon=${target.lon}`),
+    apiJson(`/api/forecast?model=gfs&lat=${target.lat}&lon=${target.lon}`)
+  ]);
+
+  modelData.ecmwf = e.status==="fulfilled" ? summarizeModel(e.value) : null;
+  modelData.gfs = g.status==="fulfilled" ? summarizeModel(g.value) : null;
+
+  renderModel("ecmwfCard","ECMWF IFS",modelData.ecmwf);
+  renderModel("gfsCard","NOAA GFS",modelData.gfs);
+
+  evaluateAlert();
+}
+
+function evaluateAlert() {
+  const mRisk = Math.max(
+    modelRisk(modelData.ecmwf),
+    modelRisk(modelData.gfs)
+  );
+
+  let level = radarRisk;
+
+  // Global forecast is supporting evidence, not treated as live radar.
+  if (mRisk >= 3) level = Math.max(level,2);
+  else if (mRisk >= 2) level = Math.max(level,1);
+
+  const cls = ["safe","watch","warn","danger"][level];
+  const icon = ["🟢","🟡","🟠","🔴"][level];
+
+  let message;
+
+  if (level === 3) {
+    message =
+      `${icon} พบกลุ่มฝนในระยะใกล้ ${target.name} — ` +
+      `ควรตรวจฟ้าร้อง/ลมแรง และพิจารณาย้ายกิจกรรมเข้าที่ร่ม`;
+  } else if (level === 2) {
+    message =
+      `${icon} แนวฝนกำลังเข้าใกล้หรืออยู่ในรัศมีเฝ้าระวังของ ${target.name} — ` +
+      `ตรวจสอบอีกครั้งก่อนเริ่มกิจกรรมกลางแจ้ง`;
+  } else if (level === 1) {
+    message =
+      `${icon} เฝ้าระวัง ${target.name}: พบสัญญาณฝนใน 10–20 กม. ` +
+      `หรือโมเดลสากลเห็นความเสี่ยงเพิ่ม`;
+  } else {
+    message =
+      `${icon} รอบ ${target.name} ยังไม่พบสัญญาณฝนใกล้เด่นชัดจากข้อมูลล่าสุด`;
+  }
+
+  const box = $("alertBox");
+  box.className = `alert ${cls}`;
+  box.textContent = message;
+
+  lastShareText =
+    `NP Radar V1\n${message}\n` +
+    `Radar: ${radarText}\n` +
+    `ECMWF risk: ${["ต่ำ","เฝ้าระวัง","ค่อนข้างสูง","สูง"][modelRisk(modelData.ecmwf)]}\n` +
+    `GFS risk: ${["ต่ำ","เฝ้าระวัง","ค่อนข้างสูง","สูง"][modelRisk(modelData.gfs)]}\n` +
+    `อัปเดต: ${new Date().toLocaleString("th-TH",{timeZone:"Asia/Bangkok"})}`;
+
+  if (level >= 2) maybeNotify(message);
+}
+
+function maybeNotify(message) {
+  if (!notificationEnabled) return;
+  if (!("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+
+  if (Date.now() - lastNotificationAt < 20*60*1000) return;
+
+  new Notification("NP Radar V1",{
+    body:message,
+    icon:"/icon-192.png"
+  });
+
+  lastNotificationAt = Date.now();
+}
+
+async function enableNotifications() {
+  if (!("Notification" in window)) {
+    alert("เบราว์เซอร์นี้ไม่รองรับ Notification");
+    return;
+  }
+
+  const p = await Notification.requestPermission();
+  notificationEnabled = p === "granted";
+  $("notifyBtn").textContent =
+    notificationEnabled ? "🔔 แจ้งเตือน ON" : "🔕 ไม่อนุญาต";
+}
+
+async function refreshAll() {
+  setSourceStatus("กำลังอัปเดต…");
+
+  const result = await Promise.allSettled([
+    loadRadarMeta(),
+    loadModels()
+  ]);
+
+  const radarOk = result[0].status === "fulfilled";
+  const modelOk = result[1].status === "fulfilled";
+
+  if (radarOk) {
+    analysisCache.clear();
+    await analyzeRadar();
+  }
+
+  if (radarOk && modelOk) {
+    setSourceStatus("ออนไลน์ • Radar + Models","ok");
+  } else if (radarOk || modelOk) {
+    setSourceStatus("ออนไลน์บางส่วน","ok");
+  } else {
+    setSourceStatus("โหลดแหล่งข้อมูลไม่สำเร็จ","bad");
+  }
+}
+
+function applyLocation(lat,lon,accuracy) {
+  target = {
+    name:"ตำแหน่งของคุณ",
+    lat,
+    lon,
+    accuracy
+  };
+
+  $("gpsInfo").textContent =
+    `พิกัด ${lat.toFixed(5)}, ${lon.toFixed(5)} • แม่นยำ ±${Math.round(accuracy||0)} ม.`;
+
+  $("gpsBtn").textContent = "📍 อัปเดตตำแหน่งของฉัน";
+  map.flyTo([lat,lon],13,{duration:.8});
+  showTarget();
+  updateRingVisibility();
+
+  analysisCache.clear();
+  refreshAll();
+}
+
+function useGPS() {
+  if (!navigator.geolocation) {
+    $("gpsInfo").textContent = "อุปกรณ์นี้ไม่รองรับ GPS";
+    return;
+  }
+
+  $("gpsBtn").disabled = true;
+  $("gpsInfo").textContent = "กำลังขอตำแหน่ง GPS…";
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      $("gpsBtn").disabled = false;
+      applyLocation(
+        pos.coords.latitude,
+        pos.coords.longitude,
+        pos.coords.accuracy
+      );
+
+      // Keep the user's point reasonably current while the page is open.
+      if (geolocationWatchId === null) {
+        geolocationWatchId = navigator.geolocation.watchPosition(
+          p => {
+            const moved = Math.hypot(
+              (p.coords.latitude-target.lat)*111000,
+              (p.coords.longitude-target.lon)*111000*Math.cos(target.lat*Math.PI/180)
+            );
+            if (moved > 250) {
+              applyLocation(
+                p.coords.latitude,
+                p.coords.longitude,
+                p.coords.accuracy
+              );
+            }
+          },
+          () => {},
+          {
+            enableHighAccuracy:true,
+            maximumAge:60000,
+            timeout:15000
+          }
+        );
+      }
+    },
+    err => {
+      $("gpsBtn").disabled = false;
+      $("gpsInfo").textContent = "ใช้ตำแหน่งไม่ได้: " + err.message;
+    },
+    {
+      enableHighAccuracy:true,
+      maximumAge:30000,
+      timeout:15000
+    }
+  );
+}
+
+$("gpsBtn").onclick = useGPS;
+$("notifyBtn").onclick = enableNotifications;
+$("refreshBtn").onclick = refreshAll;
+
+$("copyBtn").onclick = async () => {
+  try {
+    await navigator.clipboard.writeText(lastShareText || $("alertBox").textContent);
+    $("copyBtn").textContent = "✅ คัดลอกแล้ว";
+    setTimeout(() => $("copyBtn").textContent = "📋 คัดลอกสถานะ",1400);
+  } catch {
+    prompt("คัดลอกข้อความนี้:",lastShareText);
+  }
+};
+
+$("prevBtn").onclick = () => {
+  stopAnimation();
+  showFrame(frameIndex-1);
+};
+
+$("nextBtn").onclick = () => {
+  stopAnimation();
+  showFrame(frameIndex+1);
+};
+
+$("latestBtn").onclick = () => {
+  stopAnimation();
+  showFrame(frames.length-1);
+  analyzeRadar();
+};
+
+$("playBtn").onclick = () => {
+  playing ? stopAnimation() : startAnimation();
+};
+
+$("timeline").oninput = e => {
+  stopAnimation();
+  showFrame(Number(e.target.value));
+};
+
+document.querySelectorAll(".radiusBtn").forEach(btn => {
+  btn.onclick = () => {
+    btn.classList.toggle("active");
+    updateRingVisibility();
+  };
+});
+
+showTarget();
+refreshAll();
+
+setInterval(() => {
+  if (!playing) refreshAll();
+},5*60*1000);
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load",() => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
