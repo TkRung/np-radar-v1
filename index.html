@@ -33,7 +33,8 @@
       font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;
       background:var(--bg);
       color:var(--text);
-      overflow:hidden;
+      overflow-x:hidden;
+      Overflow-y:auto;
     }
     #map { z-index:1; }
 
@@ -257,7 +258,11 @@
 
     .small { font-size:9px; color:var(--muted); }
 
-    @media (max-width:760px) {
+    @media (max-width:760px){ 
+    .hud{max-height:48dvh;
+        overflow-y:auto;}
+    .panel{width:100%;}
+    .cards{gap:6Px;}
       .panel { padding:8px; border-radius:15px; }
       .logo { width:37px; height:37px; border-radius:11px; }
       h1 { font-size:16px; }
