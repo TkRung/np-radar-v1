@@ -1,4 +1,7 @@
 {
+  "functions": {
+    "api/waterlevel.js": { "maxDuration": 40 }
+  },
   "headers": [
     {
       "source": "/sw.js",
