@@ -1,0 +1,39 @@
+[hidden] { display:none !important; }
+.view-switch { display:flex; gap:6px; margin:10px 0 8px; }
+.view-switch button { flex:1; min-height:38px; font-size:13px; }
+.view-switch button[aria-pressed="true"] { background:#0b4965; border-color:var(--cyan); }
+#waterView { font-size:12px; line-height:1.5; }
+#waterView h2 { font-size:16px; margin:4px 0; }
+#waterView p { margin:6px 0; }
+.water-muted { color:var(--muted); font-size:11px; }
+#waterStatus { color:#9cecff; margin-top:4px; font-size:11px; }
+#waterStatus.water-error,.water-error { color:#ffd65d; }
+.water-controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:8px 0; }
+.water-controls label { display:flex; gap:6px; align-items:center; }
+#waterView select { min-height:34px; border:1px solid var(--border); border-radius:8px; background:var(--panel2); color:var(--text); padding:5px 8px; font:inherit; max-width:100%; }
+#waterModelStation { flex:1; min-width:0; width:100%; }
+.water-legend { display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:8px; font-size:10px; }
+.water-legend span { display:flex; gap:4px; align-items:center; }
+.water-legend i { width:8px; height:8px; border-radius:50%; }
+#waterSummary { padding:8px 10px; background:#143149; border-radius:9px; }
+.water-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin-top:8px; max-height:215px; overflow:auto; }
+.water-station { display:flex; flex-direction:column; text-align:left; font-weight:400; font-size:11px; line-height:1.55; border-left:4px solid var(--water-color); }
+.water-station strong { font-size:12px; color:var(--text); }
+.water-station b { color:var(--water-color); }
+.water-popup { font:12px/1.6 system-ui,Tahoma,sans-serif; }
+.water-popup strong,.water-popup b,.water-popup small,.water-popup a { display:block; }
+.water-popup b { font-size:16px; }
+.water-popup a { margin-top:6px; }
+.water-source { color:#9cecff; }
+#waterForecastResult svg { display:block; width:100%; max-height:210px; }
+#waterForecastResult details { max-height:180px; overflow:auto; }
+#waterForecastResult table { width:100%; border-collapse:collapse; font-size:11px; }
+#waterForecastResult td,#waterForecastResult th { padding:5px; text-align:left; border-bottom:1px solid var(--border); }
+#waterView button:focus-visible,.view-switch button:focus-visible { outline:2px solid var(--cyan); outline-offset:2px; }
+.hud { max-height:70dvh; overflow-y:auto; }
+@media (max-width:760px) {
+  .hud { max-height:48dvh; }
+  .water-list { grid-template-columns:1fr; max-height:none; }
+  .water-controls button { min-height:34px; }
+  #waterForecastResult svg { min-height:145px; }
+}

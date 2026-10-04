@@ -270,10 +270,34 @@
       .cards .card:last-child { grid-column:1 / -1; }
       .models { grid-template-columns:1fr; }
       button,.btn { padding:7px 8px; font-size:10px; }
-      .bottom { display:none; }
+      .bottom {
+  display:block;
+  left:50%;
+  right:auto;
+  transform:translateX(-50%);
+  bottom:calc(10px + env(safe-area-inset-bottom,0px));
+  width:auto;
+  max-width:calc(100vw - 20px);
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:0;
+  white-space:nowrap;
+}
+
+.bottom > b,
+.bottom > br,
+.bottom > .small {
+  display:none;
+}
+
+.bottom .legend {
+  margin-top:0;
+  font-size:10px;
+}
       .gpsline { min-width:160px; }
     }
   </style>
+  <link rel="stylesheet" href="/water.css">
 </head>
 
 <body>
@@ -296,10 +320,6 @@
       </div>
     </div>
 
-    <div id="alertBox" class="alert watch">
-      กด “ใช้ตำแหน่งของฉัน” เพื่อเริ่มวิเคราะห์ฝนรอบตำแหน่งปัจจุบัน
-    </div>
-
     <div class="row">
       <button id="gpsBtn" class="primary">📍 ใช้ตำแหน่งของฉัน</button>
       <button id="notifyBtn">🔔 เปิดแจ้งเตือน</button>
@@ -308,6 +328,15 @@
       <span id="gpsInfo" class="gpsline">ยังไม่ได้ใช้ GPS</span>
     </div>
 
+    <div class="view-switch" role="group" aria-label="เลือกข้อมูลบนแผนที่">
+      <button id="rainViewBtn" type="button" aria-pressed="true" aria-controls="rainView">🌧 เรดาร์ฝน</button>
+      <button id="waterViewBtn" type="button" aria-pressed="false" aria-controls="waterView">💧 ระดับน้ำ ThaiWater</button>
+    </div>
+
+    <section id="rainView" aria-label="เรดาร์และพยากรณ์ฝน">
+    <div id="alertBox" class="alert watch">
+      กด “ใช้ตำแหน่งของฉัน” เพื่อเริ่มวิเคราะห์ฝนรอบตำแหน่งปัจจุบัน
+    </div>
     <div class="row">
       <button id="prevBtn">⏮</button>
       <button id="playBtn">▶ เล่นเรดาร์</button>
@@ -335,6 +364,42 @@
       <div id="ecmwfCard" class="model"><b>ECMWF IFS</b><br>กำลังโหลด…</div>
       <div id="gfsCard" class="model"><b>NOAA GFS</b><br>กำลังโหลด…</div>
     </div>
+    </section>
+
+    <section id="waterView" hidden aria-label="ระดับน้ำจาก ThaiWater">
+      <h2>ระดับน้ำแม่น้ำและคลอง</h2>
+      <div id="waterStatus" role="status" aria-live="polite">เลือกข้อมูลตรวจวัดหรือพยากรณ์</div>
+      <div class="water-controls" role="group" aria-label="ชนิดข้อมูลระดับน้ำ">
+        <button id="waterObservedBtn" type="button" class="active" aria-pressed="true">ตรวจวัดล่าสุด</button>
+        <button id="waterForecastBtn" type="button" aria-pressed="false">พยากรณ์ 72 ชม.</button>
+        <button id="waterRefreshBtn" type="button">↻ อัปเดตน้ำ</button>
+        <label><input id="waterLayerEnabled" type="checkbox" checked>หมุดบนแผนที่</label>
+      </div>
+      <div id="waterObserved">
+        <div class="water-controls">
+          <label for="waterRadius">สถานีในระยะ
+            <select id="waterRadius"><option value="5">5 กม.</option><option value="10">10 กม.</option><option value="20" selected>20 กม.</option><option value="50">50 กม.</option><option value="100">100 กม.</option></select>
+          </label>
+          <button id="waterCountryBtn" type="button">ดูทั่วประเทศ</button>
+        </div>
+        <div id="waterTarget" class="water-muted"></div>
+        <p id="waterSummary" aria-live="polite">กำลังโหลดสถานีตรวจวัด…</p>
+        <div id="waterStationList" class="water-list" aria-label="สถานีระดับน้ำใกล้ตำแหน่งที่เลือก"></div>
+        <p id="waterMore" class="water-muted"></p>
+      </div>
+      <div id="waterForecast" hidden>
+        <p class="water-muted">แบบจำลองมีเฉพาะบางสถานี • หมุดสีม่วงคือจุดที่มีแบบจำลองระดับน้ำ</p>
+        <label for="waterModelStation">เลือกสถานีแบบจำลอง (เรียงใกล้ตำแหน่งที่เลือก)</label>
+        <div class="water-controls">
+          <select id="waterModelStation" disabled aria-label="สถานีแบบจำลองระดับน้ำ"></select>
+          <button id="waterModelMapBtn" type="button">ดูจุดนี้บนแผนที่</button>
+        </div>
+        <div id="waterForecastResult" aria-live="polite"></div>
+      </div>
+      <div id="waterLegend" class="water-legend" aria-label="เกณฑ์สีตาม ThaiWater"></div>
+      <p class="water-muted">ม.รทก. = เมตรเทียบระดับทะเลปานกลาง • ระดับน้ำ ณ สถานี ไม่ใช่ความลึกน้ำท่วมถนนหรือคำสั่งอพยพ</p>
+      <a class="water-source" href="https://twa.thaiwater.net/th/map/flash-flood/water-level" target="_blank" rel="noopener noreferrer">แหล่งข้อมูล: ThaiWater / คลังข้อมูลน้ำแห่งชาติ (สสน.) ↗</a>
+    </section>
   </div>
 </div>
 
@@ -349,7 +414,8 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
+<script type="module">
+import { createWaterLayer } from "./water-layer.js";
 const $ = (id) => document.getElementById(id);
 
 const map = L.map("map", {
@@ -359,6 +425,7 @@ const map = L.map("map", {
   maxZoom:18,
   zoomControl:true
 });
+map.zoomControl.setPosition("bottomleft");
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom:19,
@@ -371,6 +438,24 @@ let target = {
   lon:100.5018,
   accuracy:null
 };
+const waterLayer = createWaterLayer({ map, getTarget: () => target });
+
+function setDataView(view) {
+  const water = view === "water";
+  $("rainView").hidden = water;
+  $("waterView").hidden = !water;
+  $("rainViewBtn").setAttribute("aria-pressed", String(!water));
+  $("waterViewBtn").setAttribute("aria-pressed", String(water));
+  $("sourceStatus").hidden = water;
+  $("notifyBtn").hidden = water;
+  $("copyBtn").hidden = water;
+  document.querySelector(".bottom").hidden = water;
+  if (water) stopAnimation();
+  waterLayer.setVisible(water);
+  document.querySelector(".hud").scrollTop = 0;
+}
+$("rainViewBtn").onclick = () => setDataView("rain");
+$("waterViewBtn").onclick = () => setDataView("water");
 
 let userMarker = null;
 let accuracyCircle = null;
@@ -834,7 +919,8 @@ async function refreshAll() {
 
   const result = await Promise.allSettled([
     loadRadarMeta(),
-    loadModels()
+    loadModels(),
+    waterLayer.refresh()
   ]);
 
   const radarOk = result[0].status === "fulfilled";
@@ -869,6 +955,7 @@ function applyLocation(lat,lon,accuracy) {
   map.flyTo([lat,lon],13,{duration:.8});
   showTarget();
   updateRingVisibility();
+  waterLayer.updateTarget();
 
   analysisCache.clear();
   refreshAll();
@@ -976,6 +1063,7 @@ document.querySelectorAll(".radiusBtn").forEach(btn => {
 });
 
 showTarget();
+setDataView(new URLSearchParams(location.search).get("view") === "water" ? "water" : "rain");
 refreshAll();
 
 setInterval(() => {
