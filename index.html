@@ -270,7 +270,30 @@
       .cards .card:last-child { grid-column:1 / -1; }
       .models { grid-template-columns:1fr; }
       button,.btn { padding:7px 8px; font-size:10px; }
-      .bottom { display:none; }
+      .bottom {
+  display:block;
+  left:50%;
+  right:auto;
+  transform:translateX(-50%);
+  bottom:calc(10px + env(safe-area-inset-bottom,0px));
+  width:auto;
+  max-width:calc(100vw - 20px);
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:0;
+  white-space:nowrap;
+}
+
+.bottom > b,
+.bottom > br,
+.bottom > .small {
+  display:none;
+}
+
+.bottom .legend {
+  margin-top:0;
+  font-size:10px;
+}
       .gpsline { min-width:160px; }
     }
   </style>
